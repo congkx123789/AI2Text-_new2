@@ -21,6 +21,13 @@ from preprocessing.audio_processing import AudioProcessor, AudioAugmenter
 from preprocessing.text_cleaning import Tokenizer, VietnameseTextNormalizer
 from database.db_utils import ASRDatabase
 from training.dataset import create_data_loaders
+from training.callbacks import (
+    CallbackManager,
+    CheckpointCallback,
+    EarlyStoppingCallback,
+    LoggingCallback,
+    MetricsCallback
+)
 from utils.metrics import calculate_wer, calculate_cer
 from utils.logger import setup_logger
 
@@ -47,12 +54,56 @@ class ASRTrainer:
         
         # Training state
         self.current_epoch = 0
+        self.current_epoch_batches = 0
+        self.num_epochs = 0
         self.best_val_loss = float('inf')
         self.best_wer = float('inf')
         self.training_run_id = None
+        self.should_stop = False
+        
+        # Setup callbacks (following Training Layer architecture)
+        self._setup_callbacks()
         
         self.logger.info(f"Training on device: {self.device}")
         self.logger.info(f"Model parameters: {self.model.get_num_trainable_params():,}")
+    
+    def _setup_callbacks(self):
+        """Setup training callbacks following the Training Layer architecture."""
+        self.callback_manager = CallbackManager()
+        
+        # Checkpoint callback - saves model checkpoints
+        checkpoint_callback = CheckpointCallback(
+            checkpoint_dir=self.config.get('checkpoint_dir', 'checkpoints'),
+            save_best=True,
+            save_every_n_epochs=self.config.get('save_every', 5),
+            monitor_metric='val_loss',
+            mode='min'
+        )
+        
+        # Early stopping callback - stops if no improvement
+        if self.config.get('early_stopping', {}).get('enabled', False):
+            early_stop_callback = EarlyStoppingCallback(
+                monitor_metric='val_loss',
+                patience=self.config.get('early_stopping', {}).get('patience', 10),
+                mode='min',
+                min_delta=self.config.get('early_stopping', {}).get('min_delta', 0.0)
+            )
+            self.callback_manager.add_callback(early_stop_callback)
+        
+        # Logging callback - logs training progress
+        logging_callback = LoggingCallback(
+            log_every_n_batches=self.config.get('log_every_n_batches', 10)
+        )
+        
+        # Metrics callback - tracks and logs metrics
+        metrics_callback = MetricsCallback(
+            log_every_n_epochs=1
+        )
+        
+        # Add all callbacks
+        self.callback_manager.add_callback(checkpoint_callback)
+        self.callback_manager.add_callback(logging_callback)
+        self.callback_manager.add_callback(metrics_callback)
     
     def _setup_preprocessing(self):
         """Setup preprocessing components."""
@@ -174,6 +225,9 @@ class ASRTrainer:
             total_loss += loss.item()
             num_batches += 1
             
+            # Training Layer: Callback on_batch_end (Logging)
+            self.callback_manager.on_batch_end(self, num_batches - 1, loss.item())
+            
             # Update progress bar
             pbar.set_postfix({'loss': loss.item()})
         
@@ -257,18 +311,25 @@ class ASRTrainer:
         return self.tokenizer.decode(filtered)
     
     def train(self, train_loader, val_loader, num_epochs: int):
-        """Main training loop.
+        """
+        Main training loop following the Training Layer architecture.
+        
+        This method orchestrates the complete training process using the layered
+        architecture: Data → Preprocessing → Model → Training → Evaluation.
         
         Args:
-            train_loader: Training data loader
-            val_loader: Validation data loader
+            train_loader: Training data loader (from Preprocessing Layer)
+            val_loader: Validation data loader (from Preprocessing Layer)
             num_epochs: Number of epochs to train
         """
-        # Setup scheduler
+        self.num_epochs = num_epochs
+        self.current_epoch_batches = len(train_loader)
+        
+        # Setup scheduler (part of Optimizer in Training Layer)
         total_steps = len(train_loader) * num_epochs
         self._setup_scheduler(total_steps)
         
-        # Create training run in database
+        # Create training run in database (Data Layer)
         model_id = self.db.add_model(
             model_name=self.config.get('model_name', 'ASR_Base'),
             model_type='transformer_ctc',
@@ -291,51 +352,50 @@ class ASRTrainer:
         
         start_time = time.time()
         
+        # Training Layer: Callback on_train_begin
+        self.callback_manager.on_train_begin(self)
+        
         for epoch in range(num_epochs):
             self.current_epoch = epoch + 1
             epoch_start_time = time.time()
             
-            # Train
+            # Training Layer: Callback on_epoch_begin
+            self.callback_manager.on_epoch_begin(self, self.current_epoch)
+            
+            # Training Layer: Train epoch (Trainer)
             train_loss = self.train_epoch(train_loader)
             
-            # Validate
+            # Evaluation Layer: Validate (Metrics calculation)
             val_loss, wer, cer = self.validate(val_loader)
             
             epoch_time = time.time() - epoch_start_time
             
-            # Log metrics
-            self.logger.info(
-                f'Epoch {self.current_epoch}/{num_epochs} - '
-                f'Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, '
-                f'WER: {wer:.4f}, CER: {cer:.4f}, Time: {epoch_time:.2f}s'
-            )
-            
-            # Save to database
-            self.db.add_epoch_metrics(
-                training_run_id=self.training_run_id,
-                epoch=self.current_epoch,
-                train_loss=train_loss,
-                val_loss=val_loss,
-                learning_rate=self.optimizer.param_groups[0]['lr'],
-                wer=wer,
-                cer=cer,
-                epoch_time=epoch_time
-            )
-            
-            # Save best model
+            # Update best metrics
             if val_loss < self.best_val_loss:
                 self.best_val_loss = val_loss
                 self.best_wer = wer
-                self.save_checkpoint('best_model.pt')
-                self.logger.info(f'Saved best model with val_loss: {val_loss:.4f}')
             
-            # Save periodic checkpoint
-            if self.current_epoch % self.config.get('save_every', 5) == 0:
-                self.save_checkpoint(f'checkpoint_epoch_{self.current_epoch}.pt')
+            # Prepare metrics dictionary for callbacks
+            metrics = {
+                'train_loss': train_loss,
+                'val_loss': val_loss,
+                'wer': wer,
+                'cer': cer,
+                'learning_rate': self.optimizer.param_groups[0]['lr'],
+                'epoch_time': epoch_time
+            }
+            
+            # Training Layer: Callback on_epoch_end (Checkpoints, Logging, Metrics)
+            self.callback_manager.on_epoch_end(self, self.current_epoch, metrics)
+            
+            # Check early stopping
+            if self.should_stop:
+                self.logger.info(f'Early stopping triggered at epoch {self.current_epoch}')
+                break
         
         total_time = time.time() - start_time
         
-        # Complete training run
+        # Complete training run in database (Data Layer)
         self.db.complete_training_run(
             run_id=self.training_run_id,
             final_train_loss=train_loss,
@@ -346,6 +406,9 @@ class ASRTrainer:
             cer=cer,
             total_time=total_time
         )
+        
+        # Training Layer: Callback on_train_end
+        self.callback_manager.on_train_end(self)
         
         self.logger.info(f'Training completed in {total_time:.2f}s')
         self.logger.info(f'Best validation loss: {self.best_val_loss:.4f}')

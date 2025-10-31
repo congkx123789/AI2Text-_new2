@@ -22,14 +22,14 @@ def print_data_summary(db: ASRDatabase, split_version: str = "v1"):
     print("="*70)
     
     overall = summary['overall']
-    print("\n📊 Overall Statistics:")
+    print("\n[Overall Statistics]")
     print(f"  Total files:           {overall['total_files']:,}")
     print(f"  Total speakers:         {overall['total_speakers']:,}")
     print(f"  Total duration:         {overall['total_duration_hours']:.2f} hours")
     print(f"  Average duration:        {overall['avg_duration']:.2f} seconds")
     print(f"  Avg words/transcript:   {overall['avg_words_per_transcript']:.1f}")
     
-    print("\n📈 Split Statistics:")
+    print("\n[Split Statistics]")
     for split_type, stats in summary['splits'].items():
         print(f"\n  {split_type.upper()}:")
         print(f"    Files:               {stats.get('num_files', 0):,}")
@@ -37,25 +37,25 @@ def print_data_summary(db: ASRDatabase, split_version: str = "v1"):
         print(f"    Avg duration:         {stats.get('avg_duration_seconds', 0):.2f} seconds")
         print(f"    Speakers:             {stats.get('num_speakers', 0)}")
     
-    print("\n✅ Validation Results:")
+    print("\n[Validation Results]")
     validation = summary['validation']
     
     if validation['is_ready']:
-        print("  ✅ Database is READY for training!")
+        print("  [OK] Database is READY for training!")
     else:
-        print("  ❌ Database is NOT ready:")
+        print("  [ERROR] Database is NOT ready:")
         for issue in validation['issues']:
-            print(f"    ❌ {issue}")
+            print(f"    - {issue}")
     
     if validation['warnings']:
-        print("\n  ⚠️  Warnings:")
+        print("\n  [WARNING] Warnings:")
         for warning in validation['warnings']:
-            print(f"    ⚠️  {warning}")
+            print(f"    - {warning}")
     
     if validation['recommendations']:
-        print("\n  💡 Recommendations:")
+        print("\n  [TIP] Recommendations:")
         for rec in validation['recommendations']:
-            print(f"    💡 {rec}")
+            print(f"    - {rec}")
     
     print("\n" + "="*70)
 
@@ -82,7 +82,7 @@ def main():
     if args.export:
         stats = db.get_dataset_statistics(config['split_version'])
         stats.to_csv(args.export, index=False, encoding='utf-8')
-        print(f"\n✓ Statistics exported to: {args.export}")
+        print(f"\n[OK] Statistics exported to: {args.export}")
 
 
 if __name__ == '__main__':

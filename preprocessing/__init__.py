@@ -10,6 +10,13 @@ from .text_cleaning import (
     Tokenizer,
     prepare_text_for_training
 )
+from .bpe_tokenizer import BPETokenizer
+from .phonetic import (
+    strip_diacritics,
+    telex_encode_syllable,
+    vn_soundex,
+    phonetic_tokens
+)
 
 __all__ = [
     'AudioProcessor',
@@ -17,6 +24,11 @@ __all__ = [
     'preprocess_audio_file',
     'VietnameseTextNormalizer',
     'Tokenizer',
-    'prepare_text_for_training'
+    'prepare_text_for_training',
+    'BPETokenizer',
+    'strip_diacritics',
+    'telex_encode_syllable',
+    'vn_soundex',
+    'phonetic_tokens'
 ]
 

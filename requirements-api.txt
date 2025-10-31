@@ -1,0 +1,20 @@
+# Additional requirements for API and advanced features
+
+# API
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+
+# Language Model
+pyctcdecode>=0.4.0
+kenlm>=0.1  # Note: May need manual installation
+
+# Embeddings
+gensim>=4.3.0
+faiss-cpu>=1.7.4  # or faiss-gpu for GPU support
+
+# Analysis
+pandas>=2.0.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
