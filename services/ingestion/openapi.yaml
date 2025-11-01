@@ -1,0 +1,35 @@
+openapi: 3.0.3
+info:
+  title: ingestion
+  version: 0.1.0
+paths:
+  /v1/ingest:
+    post:
+      summary: Ingest audio file
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestResponse'
+components:
+  schemas:
+    IngestResponse:
+      type: object
+      properties:
+        audio_id:
+          type: string
+        object_uri:
+          type: string
+

@@ -1,0 +1,66 @@
+asyncapi: 3.0.0
+info:
+  title: Transcription Completed Event
+  version: 1.0.0
+  description: |
+    Published when ASR transcription has completed.
+    Triggers NLP post-processing pipeline.
+
+channels:
+  transcription.completed.v1:
+    address: transcription.completed.v1
+    description: Event emitted after transcription completes
+    messages:
+      TranscriptionCompleted:
+        $ref: '#/components/messages/TranscriptionCompleted'
+
+components:
+  messages:
+    TranscriptionCompleted:
+      name: TranscriptionCompleted
+      title: Transcription Completed Event
+      summary: ASR transcription finished
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/TranscriptionCompletedPayload'
+
+  schemas:
+    TranscriptionCompletedPayload:
+      type: object
+      required:
+        - recording_id
+        - text
+        - language
+        - timestamp
+      properties:
+        recording_id:
+          type: string
+          format: uuid
+          description: Recording identifier
+        text:
+          type: string
+          description: Raw transcription text (may have diacritics issues)
+        language:
+          type: string
+          enum: [vi, en]
+          description: Language of transcription
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Overall transcription confidence
+        duration_sec:
+          type: number
+          format: float
+          description: Audio duration processed
+        processing_time_sec:
+          type: number
+          format: float
+          description: Time taken to transcribe
+        timestamp:
+          type: string
+          format: date-time
+          description: Event timestamp
+
+

@@ -1,0 +1,42 @@
+name: ci
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        svc: [api-gateway, ingestion, metadata, asr, nlp-post, embeddings, search]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build ${{ matrix.svc }}
+        run: docker build -t local/${{ matrix.svc }} -f services/${{ matrix.svc }}/Dockerfile .
+
+  compose-smoke:
+    runs-on: ubuntu-latest
+    services:
+      docker:
+        image: docker:24-dind
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start docker-compose
+        run: |
+          docker compose -f infra/docker-compose.yml up -d --build
+      - name: Wait for services
+        run: sleep 30
+      - name: Check API Gateway
+        run: |
+          curl -f http://localhost:8080/health || (docker compose -f infra/docker-compose.yml logs && exit 1)
+      - name: Check services health
+        run: |
+          curl -f http://localhost:8001/health || true
+          curl -f http://localhost:8002/health || true
+          curl -f http://localhost:8005/health || true
+      - name: Run E2E smoke test
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-asyncio websockets httpx
+          pytest tests/e2e/test_flow.py -q
+

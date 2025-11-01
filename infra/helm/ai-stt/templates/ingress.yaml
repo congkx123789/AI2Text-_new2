@@ -1,0 +1,40 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ai-stt
+  annotations:
+    kubernetes.io/ingress.class: nginx
+spec:
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /v1/ingest
+            pathType: Prefix
+            backend:
+              service:
+                name: ingestion
+                port:
+                  number: 8000
+          - path: /v1/transcripts
+            pathType: Prefix
+            backend:
+              service:
+                name: metadata
+                port:
+                  number: 8000
+          - path: /v1/search
+            pathType: Prefix
+            backend:
+              service:
+                name: search
+                port:
+                  number: 8000
+          - path: /v1/asr/stream
+            pathType: Prefix
+            backend:
+              service:
+                name: asr
+                port:
+                  number: 8000
+

@@ -1,0 +1,79 @@
+{
+  "streams": [
+    {
+      "name": "EVENTS",
+      "subjects": [
+        "recording.ingested",
+        "transcription.completed",
+        "nlp.postprocessed",
+        "embeddings.indexed",
+        "dataset.*",
+        "training.*",
+        "model.promoted"
+      ],
+      "retention": "limits",
+      "storage": "file",
+      "max_age": 0,
+      "max_bytes": -1,
+      "max_msgs": -1,
+      "max_msg_size": -1,
+      "replicas": 1,
+      "no_ack": false,
+      "discard": "old",
+      "duplicate_window": 120000000000
+    }
+  ],
+  "consumers": [
+    {
+      "stream": "EVENTS",
+      "name": "asr",
+      "durable_name": "asr",
+      "filter_subject": "recording.ingested",
+      "ack_policy": "explicit",
+      "ack_wait": 30000000000,
+      "max_deliver": 3,
+      "replay_policy": "instant"
+    },
+    {
+      "stream": "EVENTS",
+      "name": "nlp",
+      "durable_name": "nlp",
+      "filter_subject": "transcription.completed",
+      "ack_policy": "explicit",
+      "ack_wait": 30000000000,
+      "max_deliver": 3,
+      "replay_policy": "instant"
+    },
+    {
+      "stream": "EVENTS",
+      "name": "embeddings",
+      "durable_name": "emb",
+      "filter_subject": "nlp.postprocessed",
+      "ack_policy": "explicit",
+      "ack_wait": 30000000000,
+      "max_deliver": 3,
+      "replay_policy": "instant"
+    },
+    {
+      "stream": "EVENTS",
+      "name": "dsbuild",
+      "durable_name": "dsbuild",
+      "filter_subject": "nlp.postprocessed",
+      "ack_policy": "explicit",
+      "ack_wait": 30000000000,
+      "max_deliver": 3,
+      "replay_policy": "instant"
+    },
+    {
+      "stream": "EVENTS",
+      "name": "train",
+      "durable_name": "train",
+      "filter_subject": "dataset.ready",
+      "ack_policy": "explicit",
+      "ack_wait": 30000000000,
+      "max_deliver": 3,
+      "replay_policy": "instant"
+    }
+  ]
+}
+

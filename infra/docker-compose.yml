@@ -1,0 +1,267 @@
+version: "3.9"
+
+services:
+  # =====================================
+  # Infrastructure Services
+  # =====================================
+  
+  # Event Bus / Message Queue
+  nats:
+    image: nats:2
+    command: ["-js"]
+    ports:
+      - "4222:4222"  # Client connections
+      - "8222:8222"  # HTTP monitoring
+    networks:
+      - asr-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8222/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ACID Metadata Store
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: asrmeta
+      POSTGRES_USER: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - asr-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # S3-Compatible Object Storage (MinIO)
+  minio:
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    ports:
+      - "9000:9000"  # API
+      - "9001:9001"  # Web Console
+    volumes:
+      - minio_data:/data
+    networks:
+      - asr-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Vector Database for Embeddings
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"  # REST API
+      - "6334:6334"  # gRPC
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - asr-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =====================================
+  # Microservices
+  # =====================================
+
+  # API Gateway - JWT Auth + Rate Limiting + Routing
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: services/api-gateway/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - NATS_URL=nats://nats:4222
+      - INGESTION_URL=http://ingestion:8000
+      - METADATA_URL=http://metadata:8000
+      - SEARCH_URL=http://search:8000
+      - JWT_PUBLIC_KEY=dev
+      - JWT_ALGO=HS256
+      - RATE_LIMIT_PER_MINUTE=60
+    depends_on:
+      nats:
+        condition: service_healthy
+    networks:
+      - asr-network
+    restart: unless-stopped
+
+  # Ingestion Service - Upload to Object Storage
+  ingestion:
+    build:
+      context: ..
+      dockerfile: services/ingestion/Dockerfile
+    ports:
+      - "8001:8000"
+    environment:
+      - NATS_URL=nats://nats:4222
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minio
+      - MINIO_SECRET_KEY=minio123
+      - BUCKET=audio
+    volumes:
+      - ../inbox:/mnt/inbox
+    depends_on:
+      nats:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - asr-network
+    restart: unless-stopped
+
+  # ASR Service - Streaming + Batch Transcription
+  asr:
+    build:
+      context: ..
+      dockerfile: services/asr/Dockerfile
+    ports:
+      - "8003:8000"  # WebSocket streaming endpoint
+    environment:
+      - NATS_URL=nats://nats:4222
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minio
+      - MINIO_SECRET_KEY=minio123
+      - BUCKET=audio
+      - ASR_PARTIAL_INTERVAL_MS=400
+    depends_on:
+      nats:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - asr-network
+    restart: unless-stopped
+
+  # Metadata Service - PostgreSQL ACID Store
+  metadata:
+    build:
+      context: ..
+      dockerfile: services/metadata/Dockerfile
+    ports:
+      - "8002:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/asrmeta
+      - NLP_POST_URL=http://nlp-post:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - asr-network
+    restart: unless-stopped
+
+  # NLP Post-Processing - Vietnamese Diacritics + Typo Correction
+  nlp-post:
+    build:
+      context: ..
+      dockerfile: services/nlp-post/Dockerfile
+    ports:
+      - "8004:8000"
+    environment:
+      - NATS_URL=nats://nats:4222
+      - ENABLE_DIACRITICS_RESTORATION=true
+      - ENABLE_TYPO_CORRECTION=true
+    depends_on:
+      nats:
+        condition: service_healthy
+    networks:
+      - asr-network
+    restart: unless-stopped
+
+  # Embeddings Service - Vector Generation & Indexing
+  embeddings:
+    build:
+      context: ..
+      dockerfile: services/embeddings/Dockerfile
+    ports:
+      - "8005:8000"
+    environment:
+      - NATS_URL=nats://nats:4222
+      - QDRANT_URL=http://qdrant:6333
+      - EMBEDDING_DIM=768
+      - EMBEDDING_MODEL_TYPE=word2vec
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    networks:
+      - asr-network
+    restart: unless-stopped
+
+  # Search Service - Semantic Search over Transcripts
+  search:
+    build:
+      context: ..
+      dockerfile: services/search/Dockerfile
+    ports:
+      - "8006:8000"
+    environment:
+      - QDRANT_URL=http://qdrant:6333
+      - METADATA_URL=http://metadata:8000
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      metadata:
+        condition: service_started
+    networks:
+      - asr-network
+    restart: unless-stopped
+
+  # Training Orchestrator - Auto dataset building + training
+  training-orchestrator:
+    build:
+      context: ..
+      dockerfile: services/training-orchestrator/Dockerfile
+    ports:
+      - "8100:8100"
+    environment:
+      - NATS_URL=nats://nats:4222
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minio
+      - MINIO_SECRET_KEY=minio123
+      - AUDIO_BUCKET=audio
+      - TRANSCRIPT_BUCKET=transcripts
+      - DATASET_BUCKET=datasets
+      - MODELS_BUCKET=models
+      - TRAIN_HOURS_THRESHOLD=5.0
+      - TRAIN_DAILY_CRON=02:00
+    volumes:
+      - ./data/manifests:/data/manifests
+      - ./checkpoints:/app/checkpoints
+      - ./results:/app/results
+    depends_on:
+      - nats
+      - minio
+      - postgres
+    networks:
+      - asr-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  minio_data:
+    driver: local
+  qdrant_data:
+    driver: local
+
+networks:
+  asr-network:
+    name: asr-network
+    driver: bridge

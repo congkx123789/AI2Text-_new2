@@ -1,0 +1,47 @@
+# Development Environment Overrides
+
+global:
+  imageTag: "dev"
+  imagePullPolicy: Always
+
+gateway:
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+
+ingestion:
+  replicaCount: 1
+
+asr:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+
+search:
+  replicaCount: 1
+
+metadata:
+  replicaCount: 1
+
+postgresql:
+  primary:
+    persistence:
+      size: 5Gi
+
+minio:
+  persistence:
+    size: 10Gi
+
+qdrant:
+  persistence:
+    size: 5Gi
+
+ingress:
+  enabled: false
+  hosts:
+    - host: api-dev.ai2text.local

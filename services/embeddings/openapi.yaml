@@ -1,0 +1,23 @@
+openapi: 3.0.3
+info:
+  title: embeddings
+  version: 0.1.0
+paths:
+  /v1/embed:
+    post:
+      summary: Generate and index embedding
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                audio_id:
+                  type: string
+      responses:
+        '200':
+          description: ok
+

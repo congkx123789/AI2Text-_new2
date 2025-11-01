@@ -42,3 +42,35 @@ log_file: "logs/training.log"
 # Training run
 run_name: "vietnamese_asr_v1"
 
+# --- Ingestion watcher (auto-grab wav/mp3) ---
+ingestion:
+  watch:
+    hot_folder: "/mnt/inbox"
+    s3_inbox_prefix: "audio/inbox/"
+    scan_interval_sec: 30
+  normalize:
+    target_sample_rate: 16000
+    target_channels: 1
+    encoding: "pcm16"
+
+# --- Dataset builder ---
+dataset:
+  shards:
+    target_items_per_shard: 1000
+  split:
+    strategy: "speaker_level"
+    ratios: {train: 0.92, val: 0.04, test: 0.04}
+  quality:
+    min_duration_sec: 0.5
+    max_duration_sec: 30
+    snr_min_db: 5.0
+
+# --- Auto-training triggers ---
+training:
+  trigger:
+    hours_threshold: 5.0
+    cron: "02:00"
+  optimization:
+    mixed_precision: "fp16"
+    grad_accum_steps: 8
+

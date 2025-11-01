@@ -1,0 +1,133 @@
+# Prometheus Alert Rules for AI2Text SLOs
+
+groups:
+  - name: ai2text-slos
+    interval: 30s
+    rules:
+      # Gateway SLOs
+      - alert: GatewayHighLatency
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{service="gateway"}[5m])) by (le)) > 0.150
+        for: 5m
+        labels:
+          severity: warning
+          service: gateway
+          slo: latency
+        annotations:
+          summary: "Gateway p95 latency above 150ms"
+          description: "Gateway p95 latency is {{ $value | humanizeDuration }} (target: 150ms)"
+          runbook_url: "https://runbooks.ai2text.com/gateway-latency"
+
+      - alert: GatewayLowAvailability
+        expr: (1 - sum(rate(http_requests_total{service="gateway",status=~"5.."}[5m])) / sum(rate(http_requests_total{service="gateway"}[5m]))) < 0.999
+        for: 5m
+        labels:
+          severity: critical
+          service: gateway
+          slo: availability
+        annotations:
+          summary: "Gateway availability below 99.9%"
+          description: "Gateway availability is {{ $value | humanizePercentage }} (target: 99.9%)"
+
+      - alert: GatewayHighErrorRate
+        expr: sum(rate(http_requests_total{service="gateway",status=~"5.."}[5m])) / sum(rate(http_requests_total{service="gateway"}[5m])) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          service: gateway
+          slo: error_rate
+        annotations:
+          summary: "Gateway error rate above 1%"
+          description: "Gateway 5xx error rate is {{ $value | humanizePercentage }}"
+
+      # Search SLOs
+      - alert: SearchHighLatency
+        expr: histogram_quantile(0.95, sum(rate(search_duration_seconds_bucket[5m])) by (le)) > 0.050
+        for: 5m
+        labels:
+          severity: warning
+          service: search
+          slo: latency
+        annotations:
+          summary: "Search p95 latency above 50ms"
+          description: "Search p95 latency is {{ $value | humanizeDuration }}"
+
+      # ASR Streaming SLOs
+      - alert: ASRStreamingHighLatency
+        expr: histogram_quantile(0.95, sum(rate(asr_streaming_duration_seconds_bucket[5m])) by (le)) > 0.500
+        for: 5m
+        labels:
+          severity: warning
+          service: asr
+          slo: latency
+        annotations:
+          summary: "ASR streaming E2E p95 above 500ms"
+          description: "ASR streaming p95 is {{ $value | humanizeDuration }}"
+
+      # Metadata SLOs
+      - alert: MetadataWriteHighLatency
+        expr: histogram_quantile(0.95, sum(rate(db_duration_seconds_bucket{operation="create"}[5m])) by (le)) > 0.040
+        for: 5m
+        labels:
+          severity: warning
+          service: metadata
+          slo: latency
+        annotations:
+          summary: "Metadata write p95 above 40ms"
+          description: "Metadata write p95 is {{ $value | humanizeDuration }}"
+
+      - alert: MetadataHighErrorRate
+        expr: sum(rate(db_operations_total{status="error"}[5m])) / sum(rate(db_operations_total[5m])) > 0.005
+        for: 5m
+        labels:
+          severity: warning
+          service: metadata
+          slo: error_rate
+        annotations:
+          summary: "Metadata error rate above 0.5%"
+          description: "Metadata error rate is {{ $value | humanizePercentage }}"
+
+      # DLQ Alerts
+      - alert: DLQBacklogGrowing
+        expr: rate(nats_stream_msgs{stream=~"DLQ_.*"}[10m]) > 0
+        for: 10m
+        labels:
+          severity: warning
+          component: nats
+        annotations:
+          summary: "DLQ {{ $labels.stream }} backlog growing"
+          description: "Messages in {{ $labels.stream }} increasing at {{ $value }}/min"
+          runbook_url: "https://runbooks.ai2text.com/dlq-backlog"
+
+      - alert: DLQBacklogCritical
+        expr: nats_stream_msgs{stream=~"DLQ_.*"} > 1000
+        for: 5m
+        labels:
+          severity: critical
+          component: nats
+        annotations:
+          summary: "DLQ {{ $labels.stream }} has >1000 messages"
+          description: "DLQ {{ $labels.stream }} has {{ $value }} messages"
+
+      # Cost Alerts
+      - alert: LowGPUUtilization
+        expr: avg(nvidia_gpu_utilization) < 50
+        for: 1h
+        labels:
+          severity: info
+          component: gpu
+        annotations:
+          summary: "GPU utilization below 50%"
+          description: "Average GPU utilization is {{ $value }}% (consider scaling down)"
+
+      # Error Budget Burn
+      - alert: ErrorBudgetBurnHigh
+        expr: sum(rate(http_requests_total{status=~"5.."}[1h])) / sum(rate(http_requests_total[1h])) > 0.20
+        for: 15m
+        labels:
+          severity: critical
+          slo: error_budget
+        annotations:
+          summary: "Error budget burning at >20%/hour"
+          description: "Current burn rate: {{ $value | humanizePercentage }}/hour"
+          runbook_url: "https://runbooks.ai2text.com/error-budget"
+

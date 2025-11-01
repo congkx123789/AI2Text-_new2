@@ -1,0 +1,21 @@
+openapi: 3.0.3
+info:
+  title: asr
+  version: 0.1.0
+paths:
+  /v1/asr/transcribe:
+    post:
+      summary: Transcribe audio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                audio_uri:
+                  type: string
+      responses:
+        '202':
+          description: scheduled
+

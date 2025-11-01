@@ -1,0 +1,307 @@
+openapi: 3.0.3
+info:
+  title: AI2Text Metadata API
+  version: 1.0.0
+  description: |
+    Metadata management service for AI2Text recordings.
+    Owns the PostgreSQL database for ACID transactions.
+
+servers:
+  - url: http://metadata:8080/v1
+    description: Internal service
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: healthCheck
+      tags:
+        - health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      operationId: getMetrics
+      tags:
+        - observability
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /recordings:
+    post:
+      summary: Create recording metadata
+      operationId: createRecording
+      tags:
+        - recordings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRecordingRequest'
+      responses:
+        '201':
+          description: Recording created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordingResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    get:
+      summary: List recordings
+      operationId: listRecordings
+      tags:
+        - recordings
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [uploaded, transcribing, transcribed, processing, completed, failed]
+      responses:
+        '200':
+          description: Recordings list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordingListResponse'
+
+  /recordings/{recording_id}:
+    get:
+      summary: Get recording metadata
+      operationId: getRecording
+      tags:
+        - recordings
+      parameters:
+        - name: recording_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Recording metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordingResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      summary: Update recording metadata
+      operationId: updateRecording
+      tags:
+        - recordings
+      parameters:
+        - name: recording_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRecordingRequest'
+      responses:
+        '200':
+          description: Recording updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordingResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Delete recording
+      operationId: deleteRecording
+      tags:
+        - recordings
+      parameters:
+        - name: recording_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Recording deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, unhealthy]
+        checks:
+          type: object
+          properties:
+            database:
+              type: string
+              enum: [ok, error]
+
+    CreateRecordingRequest:
+      type: object
+      required:
+        - audio_url
+        - language
+      properties:
+        audio_url:
+          type: string
+          format: uri
+        language:
+          type: string
+          enum: [vi, en]
+        duration_sec:
+          type: number
+          format: float
+          minimum: 0
+        metadata:
+          type: object
+          additionalProperties: true
+
+    UpdateRecordingRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [uploaded, transcribing, transcribed, processing, completed, failed]
+        transcript:
+          type: string
+        error:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+
+    RecordingResponse:
+      type: object
+      required:
+        - recording_id
+        - status
+        - language
+        - created_at
+      properties:
+        recording_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [uploaded, transcribing, transcribed, processing, completed, failed]
+        audio_url:
+          type: string
+          format: uri
+        transcript:
+          type: string
+          nullable: true
+        language:
+          type: string
+          enum: [vi, en]
+        duration_sec:
+          type: number
+          format: float
+        error:
+          type: string
+          nullable: true
+        metadata:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    RecordingListResponse:
+      type: object
+      required:
+        - recordings
+        - total
+      properties:
+        recordings:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecordingResponse'
+        total:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+

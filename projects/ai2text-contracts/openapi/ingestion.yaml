@@ -1,0 +1,168 @@
+openapi: 3.0.3
+info:
+  title: AI2Text Ingestion API
+  version: 1.0.0
+  description: |
+    File ingestion service for AI2Text.
+    Handles audio upload, validation, and storage in MinIO/S3.
+
+servers:
+  - url: http://ingestion:8080/v1
+    description: Internal service
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: healthCheck
+      tags:
+        - health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      operationId: getMetrics
+      tags:
+        - observability
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /upload:
+    post:
+      summary: Upload audio file
+      operationId: uploadAudio
+      tags:
+        - ingestion
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Audio file (wav, mp3, flac, ogg)
+                language:
+                  type: string
+                  enum: [vi, en]
+                  default: vi
+                  description: Audio language
+                metadata:
+                  type: string
+                  description: JSON string of additional metadata
+      responses:
+        '200':
+          description: Upload successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, unhealthy]
+        checks:
+          type: object
+          properties:
+            minio:
+              type: string
+              enum: [ok, error]
+            nats:
+              type: string
+              enum: [ok, error]
+
+    UploadResponse:
+      type: object
+      required:
+        - recording_id
+        - status
+        - audio_url
+      properties:
+        recording_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [accepted, processing]
+        audio_url:
+          type: string
+          format: uri
+        duration_sec:
+          type: number
+          format: float
+        file_size_bytes:
+          type: integer
+        message:
+          type: string
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Invalid request (bad format, corrupt file, etc.)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    PayloadTooLarge:
+      description: File size exceeds limit
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    UnsupportedMediaType:
+      description: Unsupported audio format
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+

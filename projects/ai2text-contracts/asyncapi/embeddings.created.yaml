@@ -1,0 +1,57 @@
+asyncapi: 3.0.0
+info:
+  title: Embeddings Created Event
+  version: 1.0.0
+  description: |
+    Published when vector embeddings have been generated and indexed in Qdrant.
+    Indicates that the transcript is now searchable.
+
+channels:
+  embeddings.created.v1:
+    address: embeddings.created.v1
+    description: Event emitted after embeddings are indexed
+    messages:
+      EmbeddingsCreated:
+        $ref: '#/components/messages/EmbeddingsCreated'
+
+components:
+  messages:
+    EmbeddingsCreated:
+      name: EmbeddingsCreated
+      title: Embeddings Created Event
+      summary: Vector embeddings generated and indexed
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/EmbeddingsCreatedPayload'
+
+  schemas:
+    EmbeddingsCreatedPayload:
+      type: object
+      required:
+        - recording_id
+        - vector_id
+        - timestamp
+      properties:
+        recording_id:
+          type: string
+          format: uuid
+          description: Recording identifier
+        vector_id:
+          type: string
+          description: Qdrant vector ID
+        text:
+          type: string
+          description: Processed text that was embedded
+        embedding_dim:
+          type: integer
+          description: Dimension of the embedding vector
+        collection:
+          type: string
+          default: transcripts
+          description: Qdrant collection name
+        timestamp:
+          type: string
+          format: date-time
+          description: Event timestamp
+
+

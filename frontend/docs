@@ -1,0 +1,282 @@
+# 🛡️ Error Handling & API Best Practices
+
+## Overview
+
+The frontend has been enhanced with comprehensive error handling, validation, and API best practices to ensure robustness and prevent conflicts.
+
+---
+
+## ✅ **Implemented Features**
+
+### **1. API Error Handling**
+
+#### **Request/Response Interceptors**
+- ✅ Automatic error parsing
+- ✅ HTTP status code handling (400, 401, 403, 404, 413, 415, 422, 429, 500, 503)
+- ✅ Network error detection
+- ✅ Timeout handling
+- ✅ Retry logic for GET requests on server errors (500+)
+
+#### **Error Types Handled**
+- **Network Errors**: Connection failures, timeouts
+- **HTTP Errors**: All standard HTTP error codes
+- **Validation Errors**: 400, 422 (bad input)
+- **Server Errors**: 500, 503 (retry logic)
+- **File Errors**: Too large (413), wrong type (415)
+- **Rate Limiting**: 429 (too many requests)
+
+### **2. File Validation**
+
+#### **Audio File Validation**
+- ✅ File type validation (WAV, MP3, FLAC, WebM, M4A)
+- ✅ File size validation (max 50MB)
+- ✅ Empty file detection
+- ✅ Invalid file object detection
+
+#### **Settings Validation**
+- ✅ Model name validation
+- ✅ Beam width range (1-100)
+- ✅ Confidence threshold (0-1)
+- ✅ LM path validation
+
+### **3. Error Boundaries**
+
+#### **React Error Boundary**
+- ✅ Catches React component errors
+- ✅ Shows user-friendly error UI
+- ✅ Prevents app crash
+- ✅ Provides error details for debugging
+
+### **4. API Health Monitoring**
+
+#### **Health Check Hook**
+- ✅ Periodic API health checks (every 30 seconds)
+- ✅ Visual status indicator (WiFi icon)
+- ✅ Automatic reconnection detection
+- ✅ Warning banner when API is offline
+
+### **5. User Feedback**
+
+#### **Toast Notifications**
+- ✅ Success messages (green)
+- ✅ Error messages (red)
+- ✅ Warning messages (yellow)
+- ✅ Custom durations
+- ✅ Action feedback
+
+#### **Progress Indicators**
+- ✅ Upload progress bar
+- ✅ Loading spinners
+- ✅ Status indicators
+
+---
+
+## 🔧 **API Client Features**
+
+### **Request Interceptor**
+```javascript
+// Logs requests (dev mode)
+// Adds metadata for timing
+// Handles errors before request
+```
+
+### **Response Interceptor**
+```javascript
+// Parses HTTP errors
+// Handles network errors
+// Implements retry logic (GET only)
+// Calculates request duration
+```
+
+### **Error Handling**
+```javascript
+// Automatic error message extraction
+// User-friendly error messages
+// Error logging for debugging
+// Toast notifications
+```
+
+---
+
+## 📋 **Error Handling Flow**
+
+### **1. API Request Flow**
+```
+User Action → Validation → API Request → Interceptor → 
+Success/Error → Error Handler → User Feedback
+```
+
+### **2. Error Types & Handling**
+
+| Error Type | Detection | Handling | User Feedback |
+|------------|----------|----------|---------------|
+| Network Error | No response | Show message | "Network error. Check connection" |
+| Timeout | Request timeout | Show message | "Request timeout. Server took too long" |
+| 400 Bad Request | HTTP 400 | Parse error | Show backend error message |
+| 413 File Too Large | HTTP 413 | Reject file | "File exceeds 50MB limit" |
+| 415 Wrong File Type | HTTP 415 | Reject file | "Unsupported file type" |
+| 500 Server Error | HTTP 500 | Retry (GET only) | "Server error. Please try again" |
+| 503 Service Unavailable | HTTP 503 | Show message | "Service temporarily unavailable" |
+
+---
+
+## 🛠️ **Validation Rules**
+
+### **File Upload**
+- ✅ Maximum size: 50MB
+- ✅ Allowed types: WAV, MP3, FLAC, WebM, M4A
+- ✅ Non-empty file check
+- ✅ File object validation
+
+### **Transcription Settings**
+- ✅ Model name: Required, string
+- ✅ Beam width: 1-100 (if beam search enabled)
+- ✅ Confidence: 0-1
+- ✅ LM path: Valid string (if LM enabled)
+
+### **API Configuration**
+- ✅ Base URL validation
+- ✅ Timeout configuration (120s for transcription, 5s for health)
+- ✅ CORS handling
+
+---
+
+## 📊 **Error Recovery**
+
+### **Automatic Recovery**
+- ✅ Retry for GET requests on 500+ errors
+- ✅ Health check reconnection detection
+- ✅ User can retry manually
+
+### **Manual Recovery**
+- ✅ Refresh button on error boundary
+- ✅ Retry transcription button
+- ✅ Re-upload file option
+
+---
+
+## 🎨 **User Experience**
+
+### **Error Messages**
+- ✅ Clear, actionable messages
+- ✅ No technical jargon
+- ✅ Specific instructions
+- ✅ Visual indicators (colors, icons)
+
+### **Loading States**
+- ✅ Upload progress bar
+- ✅ Transcription spinner
+- ✅ Loading indicators
+- ✅ Disabled buttons during processing
+
+### **Status Indicators**
+- ✅ API connection status (WiFi icon)
+- ✅ Health check banner
+- ✅ Real-time status updates
+
+---
+
+## 🔒 **Security Best Practices**
+
+### **Input Validation**
+- ✅ Client-side validation
+- ✅ Server-side validation (via API)
+- ✅ File type checking
+- ✅ File size limits
+
+### **Error Information**
+- ✅ No sensitive data in errors
+- ✅ Sanitized error messages
+- ✅ Debug info only in dev mode
+
+---
+
+## 📝 **Usage Examples**
+
+### **Handle Transcription Error**
+```javascript
+try {
+  const result = await transcribeAudio(file, settings)
+  // Success handling
+} catch (error) {
+  // Error automatically handled by interceptor
+  // Toast notification shown
+  // Error details logged
+}
+```
+
+### **Check API Health**
+```javascript
+const { isHealthy, isChecking, error } = useApiHealth()
+
+if (!isHealthy) {
+  // Show warning banner
+  // Disable transcription
+}
+```
+
+### **Validate File Before Upload**
+```javascript
+import { validateAudioFile } from './utils/validation'
+
+const validation = validateAudioFile(file)
+if (!validation.valid) {
+  toast.error(validation.error)
+  return
+}
+```
+
+---
+
+## 🐛 **Troubleshooting**
+
+### **Common Issues**
+
+1. **"API server is not responding"**
+   - Check if backend is running: `python api/app.py`
+   - Verify API URL in `.env`
+   - Check CORS configuration
+
+2. **"File size exceeds 50MB"**
+   - Compress audio file
+   - Use shorter recording
+   - Split large file
+
+3. **"Network error"**
+   - Check internet connection
+   - Verify API server is accessible
+   - Check firewall settings
+
+4. **CORS Errors**
+   - Verify backend has CORS middleware
+   - Check allowed origins
+   - Ensure credentials match
+
+---
+
+## ✅ **Best Practices Implemented**
+
+- ✅ **Error Boundaries**: Prevent app crashes
+- ✅ **Input Validation**: Client + server validation
+- ✅ **Error Messages**: User-friendly, actionable
+- ✅ **Retry Logic**: Automatic retries for transient errors
+- ✅ **Health Monitoring**: Real-time API status
+- ✅ **Progress Feedback**: Visual indicators
+- ✅ **Security**: Input sanitization, error sanitization
+- ✅ **Logging**: Debug info in development
+- ✅ **Graceful Degradation**: App works even with API offline
+
+---
+
+## 🎉 **Result**
+
+The frontend now has:
+- ✅ **Robust error handling** for all scenarios
+- ✅ **Comprehensive validation** before API calls
+- ✅ **User-friendly error messages** with clear guidance
+- ✅ **Automatic recovery** where possible
+- ✅ **Real-time status monitoring** for API health
+- ✅ **Prevents conflicts** through validation and error handling
+
+**Your frontend is now production-ready with enterprise-level error handling!** 🚀
+

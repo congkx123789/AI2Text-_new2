@@ -1,0 +1,41 @@
+# Staging Environment Overrides
+
+global:
+  imageTag: "stage"
+
+gateway:
+  replicaCount: 2
+
+ingestion:
+  replicaCount: 1
+
+asr:
+  replicaCount: 1
+
+search:
+  replicaCount: 1
+
+metadata:
+  replicaCount: 2
+
+postgresql:
+  primary:
+    persistence:
+      size: 20Gi
+
+minio:
+  persistence:
+    size: 100Gi
+
+qdrant:
+  persistence:
+    size: 50Gi
+
+ingress:
+  hosts:
+    - host: api-stage.ai2text.com
+  tls:
+    - secretName: ai2text-stage-tls
+      hosts:
+        - api-stage.ai2text.com
+

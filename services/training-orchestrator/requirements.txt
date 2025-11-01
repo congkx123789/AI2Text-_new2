@@ -1,0 +1,9 @@
+fastapi==0.115.5
+uvicorn[standard]==0.32.0
+minio==7.2.7
+nats-py==2.6.0
+APScheduler==3.10.4
+pydantic==2.9.2
+# dvc>=3.0.0  # For dataset versioning
+# mlflow>=2.8.0  # For experiment tracking
+

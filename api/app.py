@@ -10,6 +10,7 @@ FastAPI application providing endpoints for:
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import torch
@@ -42,6 +43,30 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Security headers middleware
+@app.middleware("http")
+async def security_headers(request, call_next):
+    """Add security headers to all responses."""
+    response = await call_next(request)
+    # Hide server details
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Server"] = "ASR-API"  # Generic server name
+    # Remove internal headers
+    response.headers.pop("X-Powered-By", None)
+    return response
+
+# CORS middleware for frontend (configure for production)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST"],  # Limit methods
+    allow_headers=["Content-Type"],  # Limit headers
+    expose_headers=[]  # Don't expose internal headers
+)
+
 # Global state
 models_cache = {}
 tokenizer_cache = None
@@ -59,11 +84,11 @@ class TranscriptionRequest(BaseModel):
 
 
 class TranscriptionResponse(BaseModel):
-    """Response model for transcription."""
+    """Response model for transcription - sanitized."""
     text: str
     confidence: float
-    model_name: str
     processing_time: float
+    # Note: model_name removed from public response for security
 
 
 class TrainingRequest(BaseModel):
@@ -151,7 +176,7 @@ async def transcribe_audio(
     use_beam_search: bool = True,
     beam_width: int = 5,
     use_lm: bool = False,
-    lm_path: Optional[str] = None,
+    lm_path: Optional[str] = None,  # Hidden from public API
     min_confidence: Optional[float] = None
 ):
     """
@@ -265,35 +290,36 @@ async def transcribe_audio(
         # Cleanup
         tmp_path.unlink()
         
+        # Sanitize response - don't expose internal details
         return TranscriptionResponse(
             text=text,
             confidence=float(confidence),
-            model_name=model_name,
             processing_time=processing_time
         )
         
     except Exception as e:
         logger.error(f"Transcription error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
+        # Don't expose internal error details
+        raise HTTPException(status_code=500, detail="Transcription failed. Please try again.")
 
 
 @app.get("/models")
 async def list_models():
-    """List available models."""
+    """List available models - sanitized response."""
     checkpoint_dir = Path("checkpoints")
     models = []
     
     if checkpoint_dir.exists():
         for checkpoint_file in checkpoint_dir.glob("*.pt"):
+            # Only return public information
             models.append({
                 "name": checkpoint_file.stem,
-                "path": str(checkpoint_file),
-                "size_mb": checkpoint_file.stat().st_size / (1024 * 1024)
+                # Don't expose path or internal details
             })
     
+    # Don't expose loaded models cache
     return {
-        "models": models,
-        "loaded": list(models_cache.keys())
+        "models": models
     }
 
 

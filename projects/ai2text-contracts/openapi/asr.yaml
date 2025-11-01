@@ -1,0 +1,164 @@
+openapi: 3.0.3
+info:
+  title: AI2Text ASR API
+  version: 1.0.0
+  description: |
+    Automatic Speech Recognition service for AI2Text.
+    Provides batch transcription via NATS workers and real-time streaming via WebSocket.
+
+servers:
+  - url: http://asr:8080/v1
+    description: Internal service
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: healthCheck
+      tags:
+        - health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      operationId: getMetrics
+      tags:
+        - observability
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /transcribe:
+    post:
+      summary: Trigger batch transcription
+      operationId: transcribeBatch
+      tags:
+        - asr
+      description: |
+        Submit an audio file for batch transcription.
+        This is typically called internally by workers consuming NATS events.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TranscribeRequest'
+      responses:
+        '202':
+          description: Transcription job accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranscribeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /stream:
+    get:
+      summary: Real-time streaming ASR via WebSocket
+      operationId: streamASR
+      tags:
+        - asr
+      description: |
+        WebSocket endpoint for real-time transcription.
+        Client sends audio chunks, server returns partial and final transcripts.
+      responses:
+        '101':
+          description: Switching to WebSocket protocol
+        '400':
+          description: Invalid WebSocket request
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, unhealthy]
+        checks:
+          type: object
+          properties:
+            model:
+              type: string
+              enum: [ok, error]
+            nats:
+              type: string
+              enum: [ok, error]
+
+    TranscribeRequest:
+      type: object
+      required:
+        - recording_id
+        - audio_url
+        - language
+      properties:
+        recording_id:
+          type: string
+          format: uuid
+        audio_url:
+          type: string
+          format: uri
+        language:
+          type: string
+          enum: [vi, en]
+        model_version:
+          type: string
+          default: latest
+
+    TranscribeResponse:
+      type: object
+      required:
+        - recording_id
+        - status
+      properties:
+        recording_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [accepted, processing, completed, failed]
+        message:
+          type: string
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+

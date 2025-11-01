@@ -1,0 +1,21 @@
+imagePullPolicy: IfNotPresent
+
+images:
+  gateway: local/api-gateway:latest
+  ingestion: local/ingestion:latest
+  asr: local/asr:latest
+  metadata: local/metadata:latest
+  nlpPost: local/nlp-post:latest
+  embeddings: local/embeddings:latest
+  search: local/search:latest
+
+env:
+  natsUrl: nats://nats:4222
+  minioEndpoint: http://minio:9000
+  minioUser: minio
+  minioPass: minio123
+  pgUrl: postgresql://postgres:postgres@postgres:5432/asrmeta
+
+ingress:
+  host: stt.local
+

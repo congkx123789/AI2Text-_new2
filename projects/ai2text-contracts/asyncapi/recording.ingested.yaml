@@ -1,0 +1,64 @@
+asyncapi: 3.0.0
+info:
+  title: Recording Ingested Event
+  version: 1.0.0
+  description: |
+    Published when an audio file has been successfully uploaded and stored.
+    Triggers the ASR transcription pipeline.
+
+channels:
+  recording.ingested.v1:
+    address: recording.ingested.v1
+    description: Event emitted after audio file ingestion
+    messages:
+      RecordingIngested:
+        $ref: '#/components/messages/RecordingIngested'
+
+components:
+  messages:
+    RecordingIngested:
+      name: RecordingIngested
+      title: Recording Ingested Event
+      summary: Audio file uploaded and ready for processing
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/RecordingIngestedPayload'
+
+  schemas:
+    RecordingIngestedPayload:
+      type: object
+      required:
+        - recording_id
+        - audio_url
+        - language
+        - timestamp
+      properties:
+        recording_id:
+          type: string
+          format: uuid
+          description: Unique identifier for the recording
+        audio_url:
+          type: string
+          format: uri
+          description: URL to the stored audio file (S3/MinIO)
+        language:
+          type: string
+          enum: [vi, en]
+          description: Detected or specified language
+        duration_sec:
+          type: number
+          format: float
+          description: Audio duration in seconds
+        file_size_bytes:
+          type: integer
+          minimum: 0
+          description: File size in bytes
+        mime_type:
+          type: string
+          description: MIME type of the audio file
+        timestamp:
+          type: string
+          format: date-time
+          description: Event timestamp
+
+

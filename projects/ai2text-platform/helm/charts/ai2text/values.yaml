@@ -1,0 +1,228 @@
+# AI2Text Platform Helm Values
+# Default values for development environment
+
+global:
+  registry: ghcr.io/yourorg
+  imageTag: "1.0.0"
+  imagePullPolicy: IfNotPresent
+
+# Gateway Service
+gateway:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: ai2text-gateway
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# Ingestion Service
+ingestion:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: ai2text-ingestion
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+# ASR Service
+asr:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: ai2text-asr
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+
+# NLP Post-processing Service
+nlpPost:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: ai2text-nlp-post
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+# Embeddings Service
+embeddings:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: ai2text-embeddings
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+
+# Search Service
+search:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: ai2text-search
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+# Metadata Service
+metadata:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: ai2text-metadata
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+# Training Orchestrator
+trainingOrchestrator:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: ai2text-training-orchestrator
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+
+# PostgreSQL (via Bitnami chart)
+postgresql:
+  enabled: true
+  auth:
+    username: postgres
+    password: postgres
+    database: asrmeta
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+
+# NATS
+nats:
+  enabled: true
+  nats:
+    jetstream:
+      enabled: true
+      memStorage:
+        enabled: true
+        size: 2Gi
+      fileStorage:
+        enabled: true
+        size: 10Gi
+
+# MinIO
+minio:
+  enabled: true
+  mode: standalone
+  rootUser: minioadmin
+  rootPassword: minioadmin
+  persistence:
+    enabled: true
+    size: 50Gi
+  buckets:
+    - name: recordings
+      policy: none
+      purge: false
+
+# Qdrant (deployed separately or as StatefulSet)
+qdrant:
+  enabled: true
+  image: qdrant/qdrant:latest
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 6333
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+  persistence:
+    enabled: true
+    size: 20Gi
+
+# Ingress
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: api.ai2text.com
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: gateway
+              port:
+                number: 8080
+  tls:
+    - secretName: ai2text-tls
+      hosts:
+        - api.ai2text.com
+
+# Monitoring (Prometheus, Grafana)
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+  grafana:
+    enabled: true
+    adminPassword: admin
+

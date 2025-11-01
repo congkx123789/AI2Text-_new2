@@ -1,0 +1,114 @@
+{
+  "dashboard": {
+    "title": "AI2Text - SLO Dashboard",
+    "tags": ["ai2text", "slo", "production"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Gateway p95 Latency (Target: < 150ms)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{service=\"gateway\"}[5m])) by (le)) * 1000",
+            "legendFormat": "p95 latency"
+          }
+        ],
+        "thresholds": [
+          { "value": 150, "color": "red", "line": true, "op": "gt" }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Gateway Availability (Target: 99.9%)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "(1 - sum(rate(http_requests_total{service=\"gateway\",status=~\"5..\"}[5m])) / sum(rate(http_requests_total{service=\"gateway\"}[5m]))) * 100"
+          }
+        ],
+        "thresholds": "99,99.9,100"
+      },
+      {
+        "id": 3,
+        "title": "Search p95 Latency (Target: < 50ms)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(search_duration_seconds_bucket[5m])) by (le)) * 1000"
+          }
+        ],
+        "thresholds": [
+          { "value": 50, "color": "red" }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "ASR Streaming E2E p95 (Target: < 500ms)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(asr_streaming_duration_seconds_bucket[5m])) by (le)) * 1000"
+          }
+        ],
+        "thresholds": [
+          { "value": 500, "color": "red" }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Metadata Write p95 (Target: < 40ms)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(db_duration_seconds_bucket{operation=\"create\"}[5m])) by (le)) * 1000"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "DLQ Backlog",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "nats_stream_msgs{stream=~\"DLQ_.*\"}",
+            "legendFormat": "{{stream}}"
+          }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": { "type": "gt", "params": [1000] },
+              "query": { "params": ["A", "5m", "now"] }
+            }
+          ]
+        }
+      },
+      {
+        "id": 7,
+        "title": "Error Budget Burn Rate",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{status=~\"5..\"}[1h])) / sum(rate(http_requests_total[1h]))"
+          }
+        ],
+        "thresholds": "0,0.01,0.05,0.2"
+      },
+      {
+        "id": 8,
+        "title": "GPU Utilization (Target: > 50%)",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "avg(nvidia_gpu_utilization)"
+          }
+        ],
+        "thresholds": "30,50,70,90"
+      }
+    ],
+    "refresh": "10s",
+    "time": { "from": "now-1h", "to": "now" }
+  }
+}
+

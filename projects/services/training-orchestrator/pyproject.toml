@@ -1,0 +1,16 @@
+[project]
+name = "ai2text-training-orchestrator"
+version = "1.0.0"
+description = "AI2Text training orchestrator"
+requires-python = ">=3.11"
+
+dependencies = [
+    "nats-py>=2.6.0",
+    "pydantic>=2.5.0",
+    "prometheus-client>=0.19.0",
+    "ai2text-common>=0.1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4.0"]
+

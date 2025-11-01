@@ -1,0 +1,7 @@
+fastapi==0.115.5
+uvicorn[standard]==0.32.0
+nats-py==2.6.0
+requests==2.32.3
+pydantic==2.9.2
+# gensim>=4.3.0  # Uncomment when using Word2Vec/Phon2Vec
+# sentence-transformers>=2.2.2  # For transformer-based embeddings

@@ -1,0 +1,103 @@
+# Production Environment Overrides
+
+global:
+  imageTag: "1.0.0"
+
+gateway:
+  replicaCount: 3
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 20
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+ingestion:
+  replicaCount: 3
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+
+asr:
+  replicaCount: 5
+  autoscaling:
+    enabled: true
+    minReplicas: 5
+    maxReplicas: 20
+  resources:
+    requests:
+      cpu: 2000m
+      memory: 4Gi
+    limits:
+      cpu: 8000m
+      memory: 16Gi
+
+nlpPost:
+  replicaCount: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+
+embeddings:
+  replicaCount: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+
+search:
+  replicaCount: 3
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 15
+
+metadata:
+  replicaCount: 3
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+
+postgresql:
+  primary:
+    persistence:
+      size: 100Gi
+  readReplicas:
+    replicaCount: 2
+
+minio:
+  mode: distributed
+  persistence:
+    size: 500Gi
+
+qdrant:
+  replicaCount: 3
+  persistence:
+    size: 200Gi
+
+ingress:
+  annotations:
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: api.ai2text.com
+  tls:
+    - secretName: ai2text-prod-tls
+      hosts:
+        - api.ai2text.com
+
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+    retention: 30d
+  grafana:
+    enabled: true

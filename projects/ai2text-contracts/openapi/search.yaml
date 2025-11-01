@@ -1,0 +1,183 @@
+openapi: 3.0.3
+info:
+  title: AI2Text Search API
+  version: 1.0.0
+  description: |
+    Semantic search service for AI2Text transcripts.
+    Provides vector-based similarity search over embedded content.
+
+servers:
+  - url: http://search:8080/v1
+    description: Internal service
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: healthCheck
+      tags:
+        - health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      operationId: getMetrics
+      tags:
+        - observability
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /search:
+    get:
+      summary: Semantic search over transcripts
+      operationId: searchTranscripts
+      tags:
+        - search
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Search query text
+          schema:
+            type: string
+            minLength: 1
+        - name: limit
+          in: query
+          description: Maximum number of results
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: threshold
+          in: query
+          description: Minimum similarity score (0-1)
+          schema:
+            type: number
+            format: float
+            minimum: 0
+            maximum: 1
+            default: 0.7
+        - name: collection
+          in: query
+          description: Qdrant collection name
+          schema:
+            type: string
+            default: transcripts
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        checks:
+          type: object
+          properties:
+            qdrant:
+              type: string
+              enum: [ok, error]
+
+    SearchResponse:
+      type: object
+      required:
+        - hits
+        - total
+        - query_time_ms
+      properties:
+        hits:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchHit'
+        total:
+          type: integer
+          minimum: 0
+        query_time_ms:
+          type: number
+          format: float
+
+    SearchHit:
+      type: object
+      required:
+        - id
+        - score
+        - text
+      properties:
+        id:
+          type: string
+          format: uuid
+        score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        text:
+          type: string
+        recording_id:
+          type: string
+          format: uuid
+        segment_index:
+          type: integer
+          minimum: 0
+        metadata:
+          type: object
+          additionalProperties: true
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: integer
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+

@@ -1,0 +1,69 @@
+asyncapi: 3.0.0
+info:
+  title: Model Promoted Event
+  version: 1.0.0
+  description: |
+    Published when a trained model has been promoted to production.
+    Signals that the model is ready for inference.
+
+channels:
+  model.promoted.v1:
+    address: model.promoted.v1
+    description: Event emitted when model is promoted
+    messages:
+      ModelPromoted:
+        $ref: '#/components/messages/ModelPromoted'
+
+components:
+  messages:
+    ModelPromoted:
+      name: ModelPromoted
+      title: Model Promoted Event
+      summary: Model promoted to production
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ModelPromotedPayload'
+
+  schemas:
+    ModelPromotedPayload:
+      type: object
+      required:
+        - model_id
+        - model_version
+        - model_url
+        - timestamp
+      properties:
+        model_id:
+          type: string
+          description: Unique model identifier
+        model_version:
+          type: string
+          description: Semantic version of the model
+        model_url:
+          type: string
+          format: uri
+          description: URL to model artifact (S3/MinIO)
+        metrics:
+          type: object
+          description: Model performance metrics
+          properties:
+            wer:
+              type: number
+              format: float
+              description: Word Error Rate
+            cer:
+              type: number
+              format: float
+              description: Character Error Rate
+        training_config:
+          type: object
+          description: Training configuration used
+        promoted_by:
+          type: string
+          description: User or system that promoted the model
+        timestamp:
+          type: string
+          format: date-time
+          description: Event timestamp
+
+

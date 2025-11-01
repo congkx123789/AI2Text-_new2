@@ -1,0 +1,33 @@
+openapi: 3.0.3
+info:
+  title: nlp-post
+  version: 0.1.0
+paths:
+  /v1/nlp/normalize:
+    post:
+      summary: Normalize Vietnamese text
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  text_clean:
+                    type: string
+                  text_with_diacritics:
+                    type: string
+                  corrections:
+                    type: array
+                    items:
+                      type: string
+

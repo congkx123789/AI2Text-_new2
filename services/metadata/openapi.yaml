@@ -1,0 +1,42 @@
+openapi: 3.0.3
+info:
+  title: metadata
+  version: 0.1.0
+paths:
+  /v1/audio/{id}:
+    get:
+      summary: Get audio metadata
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ok
+  /v1/transcripts/{id}:
+    get:
+      summary: Get transcript
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ok
+  /v1/speakers/{speaker_id}:
+    get:
+      summary: Get speaker metadata
+      parameters:
+        - name: speaker_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ok
+

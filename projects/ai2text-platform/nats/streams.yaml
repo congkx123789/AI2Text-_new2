@@ -1,0 +1,95 @@
+# NATS JetStream Configuration for AI2Text
+
+streams:
+  # Recording ingestion stream
+  - name: RECORDINGS
+    subjects:
+      - "recording.ingested.v1"
+    storage: file
+    retention: limits
+    max_age: 7d
+    max_msgs: 100000
+    max_bytes: 10GB
+    replicas: 3
+    discard: old
+    
+    consumers:
+      - name: asr-worker
+        durable_name: asr-worker
+        deliver_policy: all
+        ack_policy: explicit
+        ack_wait: 5m
+        max_deliver: 3
+        filter_subject: "recording.ingested.v1"
+
+  # Transcription stream
+  - name: TRANSCRIPTIONS
+    subjects:
+      - "transcription.completed.v1"
+    storage: file
+    retention: limits
+    max_age: 30d
+    max_msgs: 1000000
+    replicas: 3
+    
+    consumers:
+      - name: nlp-post-worker
+        durable_name: nlp-post-worker
+        deliver_policy: all
+        ack_policy: explicit
+        ack_wait: 2m
+        filter_subject: "transcription.completed.v1"
+
+  # NLP post-processed stream
+  - name: NLP_PROCESSED
+    subjects:
+      - "nlp.postprocessed.v1"
+    storage: file
+    retention: limits
+    max_age: 30d
+    replicas: 3
+    
+    consumers:
+      - name: embeddings-worker
+        durable_name: embeddings-worker
+        deliver_policy: all
+        ack_policy: explicit
+        ack_wait: 3m
+
+  # Embeddings stream
+  - name: EMBEDDINGS
+    subjects:
+      - "embeddings.created.v1"
+    storage: file
+    retention: limits
+    max_age: 7d
+    replicas: 3
+
+  # Training stream
+  - name: TRAINING
+    subjects:
+      - "model.promoted.v1"
+    storage: file
+    retention: limits
+    max_age: 90d
+    replicas: 3
+
+# Dead Letter Queues
+dlq:
+  - name: DLQ_ASR
+    subject: "dlq.asr"
+    storage: file
+    retention: limits
+    max_age: 30d
+  
+  - name: DLQ_NLP
+    subject: "dlq.nlp"
+    storage: file
+    retention: limits
+    max_age: 30d
+  
+  - name: DLQ_EMBEDDINGS
+    subject: "dlq.embeddings"
+    storage: file
+    retention: limits
+    max_age: 30d

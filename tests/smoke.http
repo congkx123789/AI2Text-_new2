@@ -1,0 +1,185 @@
+### AI2Text ASR - REST API Smoke Tests
+### Use with VS Code REST Client extension or similar tools
+
+### Variables
+@baseUrl = http://localhost:8080
+@asrUrl = http://localhost:8003
+@metadataUrl = http://localhost:8002
+@nlpUrl = http://localhost:8004
+@searchUrl = http://localhost:8006
+
+### Get dev token (run scripts/jwt_dev_token.py first and paste here)
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+###############################################
+# 1. Health Checks
+###############################################
+
+### Check API Gateway health
+GET {{baseUrl}}/health
+
+### Check API Gateway routes
+GET {{baseUrl}}/
+
+###############################################
+# 2. File Upload (Ingestion)
+###############################################
+
+### Upload audio file
+# Replace ./sample.wav with your actual audio file path
+POST {{baseUrl}}/v1/ingest
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="file"; filename="sample.wav"
+Content-Type: audio/wav
+
+< ./sample.wav
+------WebKitFormBoundary--
+
+### Response should contain:
+# {
+#   "audio_id": "uuid",
+#   "object_uri": "s3://audio/raw/uuid.wav"
+# }
+
+###############################################
+# 3. Metadata Service
+###############################################
+
+### Get transcript (replace {audio_id} with actual ID from upload)
+GET {{baseUrl}}/v1/transcripts/{audio_id}
+Authorization: Bearer {{token}}
+
+### Get audio metadata
+GET {{metadataUrl}}/v1/audio/{audio_id}
+
+###############################################
+# 4. NLP Post-Processing
+###############################################
+
+### Normalize Vietnamese text
+POST {{nlpUrl}}/v1/nlp/normalize
+Content-Type: application/json
+
+{
+  "text": "xin chao viet nam",
+  "restore_diacritics": true,
+  "fix_typos": true
+}
+
+### Expected response:
+# {
+#   "text_clean": "xin chao viet nam",
+#   "text_with_diacritics": "xin chào việt nam",
+#   "corrections": [...]
+# }
+
+###############################################
+# 5. Search
+###############################################
+
+### Search transcripts
+GET {{baseUrl}}/v1/search?q=xin%20chào
+Authorization: Bearer {{token}}
+
+### Direct search (without gateway)
+GET {{searchUrl}}/v1/search?q=hello
+
+###############################################
+# 6. WebSocket Streaming Test
+###############################################
+
+### For WebSocket testing, use the following Python script:
+### 
+### import asyncio, websockets, json, base64
+### 
+### async def test_streaming():
+###     async with websockets.connect("ws://localhost:8003/v1/asr/stream") as ws:
+###         # Start session
+###         await ws.send(json.dumps({
+###             "type": "start",
+###             "audio_format": {
+###                 "sample_rate": 16000,
+###                 "channels": 1,
+###                 "encoding": "pcm16"
+###             }
+###         }))
+###         
+###         # Get audio_id
+###         ack = json.loads(await ws.recv())
+###         print(f"Audio ID: {ack['audio_id']}")
+###         
+###         # Send audio frame (1 second of silence)
+###         silence = b'\x00' * 32000
+###         await ws.send(json.dumps({
+###             "type": "frame",
+###             "base64": base64.b64encode(silence).decode()
+###         }))
+###         
+###         # End session
+###         await ws.send(json.dumps({"type": "end"}))
+###         
+###         # Receive results
+###         async for msg in ws:
+###             result = json.loads(msg)
+###             print(f"Result: {result}")
+###             if result["type"] == "final":
+###                 break
+### 
+### asyncio.run(test_streaming())
+
+###############################################
+# 7. Rate Limiting Test
+###############################################
+
+### Test rate limiting (should fail after 60 requests/minute)
+### Run this multiple times quickly to trigger rate limit
+GET {{baseUrl}}/v1/search?q=test
+Authorization: Bearer {{token}}
+
+###############################################
+# 8. Authentication Test
+###############################################
+
+### Test without token (should fail with 401)
+GET {{baseUrl}}/v1/search?q=test
+
+### Test with invalid token (should fail with 401)
+GET {{baseUrl}}/v1/search?q=test
+Authorization: Bearer invalid_token_here
+
+###############################################
+# 9. Direct Service Access (Bypass Gateway)
+###############################################
+
+### These endpoints bypass the gateway (useful for debugging)
+
+### Metadata health
+GET {{metadataUrl}}/health
+
+### NLP health
+GET {{nlpUrl}}/health
+
+### Search health
+GET {{searchUrl}}/health
+
+###############################################
+# 10. Full Pipeline Test
+###############################################
+
+### Step 1: Upload audio
+# POST {{baseUrl}}/v1/ingest with audio file
+# -> Get audio_id
+
+### Step 2: Wait 2-3 seconds for processing
+
+### Step 3: Get transcript
+# GET {{baseUrl}}/v1/transcripts/{audio_id}
+# -> Should have text_clean with Vietnamese diacritics
+
+### Step 4: Search
+# GET {{baseUrl}}/v1/search?q={word_from_transcript}
+# -> Should find the audio in results
+

@@ -1,0 +1,89 @@
+asyncapi: 3.0.0
+info:
+  title: NLP Post-Processed Event
+  version: 1.0.0
+  description: |
+    Published when Vietnamese NLP post-processing has completed.
+    Includes diacritics restoration, normalization, and typo correction.
+    Triggers embedding generation pipeline.
+
+channels:
+  nlp.postprocessed.v1:
+    address: nlp.postprocessed.v1
+    description: Event emitted after NLP post-processing
+    messages:
+      NLPPostprocessed:
+        $ref: '#/components/messages/NLPPostprocessed'
+
+components:
+  messages:
+    NLPPostprocessed:
+      name: NLPPostprocessed
+      title: NLP Post-Processed Event
+      summary: Vietnamese NLP processing completed
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/NLPPostprocessedPayload'
+
+  schemas:
+    NLPPostprocessedPayload:
+      type: object
+      required:
+        - recording_id
+        - text_original
+        - text_processed
+        - timestamp
+      properties:
+        recording_id:
+          type: string
+          format: uuid
+          description: Recording identifier
+        text_original:
+          type: string
+          description: Text before NLP processing
+        text_processed:
+          type: string
+          description: Text after NLP processing (normalized, diacritics restored)
+        language:
+          type: string
+          enum: [vi, en]
+          default: vi
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: NLP processing confidence
+        changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/NLPChange'
+          description: List of changes made during processing
+        timestamp:
+          type: string
+          format: date-time
+          description: Event timestamp
+
+    NLPChange:
+      type: object
+      required:
+        - type
+        - original
+        - corrected
+      properties:
+        type:
+          type: string
+          enum: [diacritics, normalization, typo, spacing]
+          description: Type of change
+        original:
+          type: string
+          description: Original text segment
+        corrected:
+          type: string
+          description: Corrected text segment
+        position:
+          type: integer
+          minimum: 0
+          description: Character position in original text
+
+

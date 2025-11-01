@@ -1,0 +1,48 @@
+[project]
+name = "ai2text-common"
+version = "0.1.0"
+description = "Shared library for AI2Text microservices"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "AI2Text Team", email = "team@ai2text.com"}
+]
+
+dependencies = [
+    "pydantic>=2.0.0,<3.0.0",
+    "opentelemetry-api>=1.20.0",
+    "opentelemetry-sdk>=1.20.0",
+    "opentelemetry-instrumentation-fastapi>=0.40b0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.20.0",
+    "cloudevents>=1.9.0",
+    "nats-py>=2.6.0",
+    "prometheus-client>=0.19.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.5.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+
