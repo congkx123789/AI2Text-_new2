@@ -11,6 +11,7 @@ from fastapi.responses import PlainTextResponse
 from prometheus_client import Counter, Histogram, generate_latest
 from pydantic import BaseModel
 from qdrant_client import QdrantClient
+from qdrant_client.http import models
 from qdrant_client.http.exceptions import UnexpectedResponse
 
 from ai2text_common.observability import setup_tracing, setup_logging
@@ -68,8 +69,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         collections = qdrant_client.get_collections()
         logger.info(f"Connected to Qdrant: {len(collections.collections)} collections")
+        
+        # Optimize HNSW for p95 < 50ms
+        from app.optimization import optimize_hnsw_collection, configure_search_ef
+        
+        optimize_hnsw_collection(
+            client=qdrant_client,
+            collection_name=settings.qdrant_collection,
+            vector_size=384,  # TODO: Get from config
+        )
+        configure_search_ef(
+            client=qdrant_client,
+            collection_name=settings.qdrant_collection,
+            ef=128,  # Optimized for p95 < 50ms
+        )
+        
+        logger.info("HNSW optimization complete")
     except Exception as e:
-        logger.error(f"Failed to connect to Qdrant: {e}")
+        logger.error(f"Failed to optimize Qdrant: {e}")
     
     logger.info("Search service ready")
     yield
@@ -129,13 +146,28 @@ async def search(
         # In real implementation, call embedding service or use local model
         query_vector = [0.1] * 384  # Placeholder
         
-        # Search Qdrant
+        # Use optimized search parameters for p95 < 50ms
+        from app.optimization import get_optimized_search_params
+        
+        search_params = get_optimized_search_params()
+        search_params.update({
+            "limit": limit,
+            "score_threshold": threshold,
+        })
+        
+        # Search Qdrant with HNSW optimization
         with search_duration_seconds.time():
             results = qdrant_client.search(
                 collection_name=collection,
                 query_vector=query_vector,
-                limit=limit,
-                score_threshold=threshold
+                query_filter=None,
+                search_params=models.SearchParams(
+                    hnsw_ef=search_params["hnsw_ef"],  # Optimized for speed (128)
+                ),
+                limit=search_params["limit"],
+                score_threshold=search_params["score_threshold"],
+                with_payload=search_params["with_payload"],
+                with_vectors=search_params["with_vectors"],
             )
         
         # Convert results

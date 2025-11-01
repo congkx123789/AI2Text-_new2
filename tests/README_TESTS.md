@@ -1,180 +1,225 @@
-# Testing Guide for ASR Training System
+# Testing Guide for AI2Text Project
 
-## 🧪 Test Suite Overview
+## Quick Start
 
-The test suite covers all major components of the ASR training system:
+### Running Tests
 
-- ✅ **Database Tests** (`test_database.py`) - Database operations, validation, statistics
-- ✅ **Preprocessing Tests** (`test_preprocessing.py`) - Audio and text preprocessing
-- ✅ **Model Tests** (`test_models.py`) - ASR model architecture and forward pass
-- ✅ **Metrics Tests** (`test_metrics.py`) - WER, CER, accuracy calculations
-- ✅ **Training Tests** (`test_training.py`) - Dataset, data loaders, training components
-
-## 🚀 Running Tests
-
-### Run All Tests
 ```bash
+# Run all tests
 pytest
-```
 
-### Run Specific Test File
-```bash
-pytest tests/test_database.py
-pytest tests/test_preprocessing.py
-pytest tests/test_models.py
-```
+# Run specific test file
+pytest tests/unit/preprocessing/test_audio_processing.py
 
-### Run Specific Test Class or Function
-```bash
-pytest tests/test_database.py::TestASRDatabase
-pytest tests/test_database.py::TestASRDatabase::test_add_audio_file
-```
+# Run with coverage
+pytest --cov=preprocessing --cov=models --cov=decoding --cov-report=html
 
-### Run with Coverage Report
-```bash
-pytest --cov=. --cov-report=html
-```
+# Run only fast tests (exclude slow/integration)
+pytest -m "not slow"
 
-### Run in Parallel (Faster)
-```bash
+# Run in parallel
 pytest -n auto
 ```
 
-### Run Only Fast Tests (Skip Slow Ones)
+### Test Structure
+
+```
+tests/
+├── unit/              # Unit tests (60% of tests)
+│   ├── preprocessing/ # Audio and text preprocessing
+│   ├── models/        # ASR models
+│   ├── decoding/      # Decoding algorithms
+│   ├── database/      # Database operations
+│   ├── nlp/           # NLP components
+│   ├── training/      # Training pipeline
+│   ├── api/           # API endpoints
+│   └── utils/         # Utility functions
+├── integration/       # Integration tests (30%)
+├── e2e/               # End-to-end tests (10%)
+├── performance/      # Performance benchmarks
+├── security/          # Security tests
+└── fixtures/          # Test fixtures and utilities
+```
+
+## Test Categories
+
+### Unit Tests
+- **Location**: `tests/unit/`
+- **Purpose**: Test individual functions and classes in isolation
+- **Speed**: Fast (<1 second each)
+- **Coverage Target**: 80%+
+
+### Integration Tests
+- **Location**: `tests/integration/`
+- **Purpose**: Test component interactions
+- **Speed**: Medium (1-10 seconds each)
+- **Marked with**: `@pytest.mark.integration`
+
+### End-to-End Tests
+- **Location**: `tests/e2e/`
+- **Purpose**: Test complete user workflows
+- **Speed**: Slow (>10 seconds each)
+- **Marked with**: `@pytest.mark.e2e`
+
+## Important Test Files
+
+### Critical Tests (Must Pass)
+1. `tests/unit/preprocessing/test_audio_processing.py` - Audio processing core
+2. `tests/unit/models/test_asr_base.py` - Base model architecture
+3. `tests/unit/api/test_app.py` - API endpoints
+4. `tests/unit/database/test_db_utils.py` - Database operations
+
+### High Priority Tests
+1. `tests/unit/decoding/test_beam_search.py` - Decoding algorithms
+2. `tests/unit/decoding/test_lm_decoder.py` - Language model integration
+3. `tests/integration/test_api_integration.py` - API workflows
+
+## Running Specific Test Suites
+
+### By Module
 ```bash
+# Preprocessing tests
+pytest tests/unit/preprocessing/
+
+# Model tests
+pytest tests/unit/models/
+
+# API tests
+pytest tests/unit/api/
+```
+
+### By Markers
+```bash
+# Only fast tests
 pytest -m "not slow"
+
+# Only integration tests
+pytest -m integration
+
+# Only GPU tests (if available)
+pytest -m requires_gpu
 ```
 
-### Verbose Output
-```bash
-pytest -v
-```
+## Coverage Goals
 
-### Show Print Statements
-```bash
-pytest -s
-```
+| Module | Target Coverage |
+|--------|----------------|
+| Preprocessing | 85% |
+| Models | 80% |
+| Decoding | 80% |
+| Database | 85% |
+| API | 75% |
 
-## 📊 Test Coverage
+## Test Fixtures
 
-### Current Coverage:
-- Database operations: ✅ Complete
-- Audio preprocessing: ✅ Complete
-- Text preprocessing: ✅ Complete
-- Model architecture: ✅ Complete
-- Metrics calculation: ✅ Complete
-- Training components: ✅ Complete
+Common fixtures are defined in `tests/conftest.py`:
 
-### Test Statistics:
-- Total test files: 5
-- Total test classes: 6+
-- Total test functions: 50+
+- `temp_db`: Temporary database for testing
+- `temp_dir`: Temporary directory
+- `sample_audio_file`: Sample audio file
+- `audio_processor`: AudioProcessor instance
+- `audio_augmenter`: AudioAugmenter instance
+- `text_normalizer`: VietnameseTextNormalizer instance
+- `tokenizer`: Tokenizer instance
+- `asr_model`: ASR model instance
 
-## 🔧 Test Fixtures
+## Writing New Tests
 
-The test suite includes comprehensive fixtures (`conftest.py`):
-- `temp_db` - Temporary database for testing
-- `temp_dir` - Temporary directory for files
-- `sample_audio_file` - Sample WAV file
-- `audio_processor` - AudioProcessor instance
-- `audio_augmenter` - AudioAugmenter instance
-- `text_normalizer` - VietnameseTextNormalizer instance
-- `tokenizer` - Tokenizer instance
-- `asr_model` - ASR model instance
-- `sample_transcripts` - Vietnamese transcript samples
+### Test Naming
+- Files: `test_*.py`
+- Functions: `test_*`
+- Classes: `Test*`
 
-## 📝 Writing New Tests
-
-### Test File Structure
+### Test Structure
 ```python
-"""
-Tests for your_module.
-"""
-
-import pytest
-from your_module import YourClass
-
-class TestYourClass:
-    """Test YourClass."""
+def test_function_name_scenario():
+    """Test description."""
+    # Arrange
+    setup_data = create_test_data()
     
-    def test_something(self, fixture_name):
-        """Test something."""
-        # Arrange
-        obj = YourClass()
-        
-        # Act
-        result = obj.method()
-        
-        # Assert
-        assert result is not None
+    # Act
+    result = function_to_test(setup_data)
+    
+    # Assert
+    assert result == expected_value
 ```
 
-### Best Practices:
-1. **Use descriptive test names**: `test_add_audio_file_duplicate_skip` not `test_1`
-2. **One assertion per test**: Focus on one behavior
-3. **Use fixtures**: Reuse setup code
-4. **Test edge cases**: Empty inputs, None values, etc.
-5. **Use parametrize**: Test multiple inputs efficiently
-
-### Example with Parametrize:
+### Using Fixtures
 ```python
-@pytest.mark.parametrize("input,expected", [
-    ("Xin Chào", "xin chào"),
-    ("VIỆT NAM", "việt nam"),
+def test_with_fixture(audio_processor, sample_audio_file):
+    """Test using fixtures."""
+    audio, sr = audio_processor.load_audio(sample_audio_file[0])
+    assert sr == 16000
+```
+
+### Parametrized Tests
+```python
+@pytest.mark.parametrize("input_value,expected", [
+    (1, 2),
+    (2, 4),
+    (3, 6),
 ])
-def test_normalization(input, expected, text_normalizer):
-    result = text_normalizer.normalize(input)
-    assert result == expected
+def test_multiply_by_two(input_value, expected):
+    assert input_value * 2 == expected
 ```
 
-## 🐛 Debugging Tests
+## Debugging Tests
 
-### Run with Debugger
+### Run with Verbose Output
 ```bash
-pytest --pdb
+pytest -v tests/unit/preprocessing/test_audio_processing.py
 ```
 
-### Show Local Variables on Failure
+### Run Single Test
 ```bash
-pytest -l
+pytest tests/unit/preprocessing/test_audio_processing.py::TestAudioProcessor::test_load_audio
 ```
 
-### Stop on First Failure
+### Print Output
 ```bash
-pytest -x
+pytest -s  # Show print statements
 ```
 
-### Run Last Failed Tests
+### Debug on Failure
 ```bash
-pytest --lf
+pytest --pdb  # Drop into debugger on failure
 ```
 
-## ✅ Continuous Integration
+## Continuous Integration
 
-Tests can be integrated into CI/CD pipeline:
+Tests run automatically on:
+- Every commit (fast tests only)
+- Pull requests (full test suite)
+- Main branch merges (full suite + integration)
 
-```yaml
-# Example GitHub Actions
-- name: Run tests
-  run: |
-    pip install -r requirements.txt
-    pytest --cov=. --cov-report=xml
-```
+## Best Practices
 
-## 📈 Improving Test Coverage
+1. **Isolation**: Each test should be independent
+2. **Speed**: Keep unit tests fast (<1s)
+3. **Clarity**: Use descriptive test names
+4. **Coverage**: Aim for 80%+ coverage on critical paths
+5. **Maintainability**: Keep tests simple and readable
 
-To see what's not covered:
-```bash
-pytest --cov=. --cov-report=term-missing
-```
+## Common Issues
 
-Focus on:
-1. Error handling paths
-2. Edge cases
-3. Integration between modules
-4. Real-world scenarios
+### Import Errors
+- Ensure you're running from project root
+- Check that modules are in Python path
 
----
+### Missing Dependencies
+- Install test requirements: `pip install -r requirements/base.txt`
+- Ensure pytest is installed: `pip install pytest pytest-cov`
 
-**Happy Testing!** 🎉
+### Database Errors
+- Tests use temporary databases (automatically cleaned up)
+- If issues persist, check database fixtures in `conftest.py`
 
+### GPU Tests Failing
+- GPU tests are marked with `@pytest.mark.requires_gpu`
+- Skip if GPU not available: `pytest -m "not requires_gpu"`
+
+## Resources
+
+- [Testing Roadmap](./TESTING_ROADMAP.md) - Comprehensive testing strategy
+- [Pytest Documentation](https://docs.pytest.org/)
+- [Python Testing Guide](https://realpython.com/python-testing/)

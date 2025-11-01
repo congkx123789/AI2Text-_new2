@@ -1,5 +1,6 @@
 """AI2Text ASR Service - Speech recognition."""
 import logging
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import AsyncGenerator
@@ -88,19 +89,60 @@ async def transcribe_batch(request: TranscribeRequest) -> TranscribeResponse:
 
 @app.websocket("/stream")
 async def stream_asr(websocket: WebSocket):
-    """Real-time streaming ASR."""
+    """Real-time streaming ASR with optimizations for p95 < 500ms E2E."""
     await websocket.accept()
     logger.info("WebSocket connection established")
+    
+    # Initialize optimizer
+    from app.streaming_optimization import StreamingOptimizer, process_streaming_audio_optimized
+    
+    optimizer = StreamingOptimizer(target_e2e_p95_ms=500)
+    config = optimizer.get_optimized_streaming_config()
+    
+    last_partial_time = time.time()
     
     try:
         while True:
             # Receive audio chunk
+            chunk_start = time.time()
             data = await websocket.receive_bytes()
             
-            # TODO: Process audio chunk, generate partial transcript
-            partial_transcript = {"text": "Processing...", "is_final": False}
+            # Model inference function (placeholder)
+            async def model_inference(audio_bytes: bytes):
+                # TODO: Replace with actual ASR model
+                return {
+                    "text": "Processing audio...",
+                    "is_final": False,
+                }
             
-            await websocket.send_json(partial_transcript)
+            # Process with optimizations
+            result = await process_streaming_audio_optimized(
+                audio_chunk=data,
+                optimizer=optimizer,
+                model_inference_fn=model_inference,
+            )
+            
+            # Check if we should send partial (rate limiting)
+            if not result["is_final"]:
+                if not optimizer.should_send_partial(last_partial_time):
+                    continue  # Skip this partial
+            
+            # Send result
+            await websocket.send_json({
+                "text": result["text"],
+                "is_final": result["is_final"],
+                "latency_ms": result["e2e_latency_ms"],
+                "meets_slo": result["meets_slo"],
+            })
+            
+            last_partial_time = time.time()
+            
+            # Log if SLO violated
+            if not result["meets_slo"]:
+                logger.warning(
+                    f"Streaming latency {result['e2e_latency_ms']:.2f}ms "
+                    f"exceeds target 500ms"
+                )
     
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected")

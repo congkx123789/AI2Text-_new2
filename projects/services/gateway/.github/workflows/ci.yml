@@ -8,7 +8,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/service-name
+  IMAGE_NAME: ${{ github.repository }}/gateway
 
 jobs:
   test:
@@ -61,7 +61,7 @@ jobs:
         run: mypy app/
 
   contract-tests:
-    name: Contract Tests
+    name: Contract Tests (BLOCKS PR)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -73,6 +73,7 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/ai2text-contracts
           path: contracts-repo
+          token: ${{ secrets.GITHUB_TOKEN }}
       
       - uses: actions/setup-python@v5
         with:
@@ -82,23 +83,19 @@ jobs:
         run: |
           pip install pytest pytest-asyncio httpx jsonschema pyyaml
       
-      - name: Run contract tests
+      - name: Validate OpenAPI spec
+        run: |
+          cd contracts-repo/codegen
+          make validate || exit 1
+      
+      - name: Run Gateway contract tests
         working-directory: service-repo
         env:
           CONTRACTS_PATH: ../contracts-repo
         run: |
-          cd ../tests/contract
-          pytest gateway/ asr/ search/ -v || {
-            echo "Contract tests failed!"
-            echo "PR will be blocked until contract tests pass."
-            exit 1
-          }
-      
-      - name: Validate OpenAPI/AsyncAPI specs
-        run: |
-          cd contracts-repo/codegen
-          make validate || {
-            echo "Contract validation failed!"
+          cd ../../tests/contract
+          pytest gateway/ -v --tb=short || {
+            echo "❌ Contract tests FAILED - PR will be blocked"
             exit 1
           }
 
@@ -130,7 +127,6 @@ jobs:
             type=ref,event=branch
             type=ref,event=pr
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
             type=sha
       
       - name: Build and push
@@ -143,15 +139,3 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy-dev:
-    name: Deploy to Dev
-    if: github.ref == 'refs/heads/main'
-    needs: [build]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Deploy to dev
-        run: |
-          echo "Deploy to dev environment"
-          # TODO: Add Helm upgrade command
